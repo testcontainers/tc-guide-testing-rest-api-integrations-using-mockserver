@@ -180,7 +180,7 @@ So, let us write the test for GET `/api/albums/\{albumId}` endpoint as follows:
 
 [source,java]
 ----
-include::{codebase}/src/test/java/com/testcontainers/demo/AlbumControllerTest.java[lines="0..99,117..124"]
+include::{codebase}/src/test/java/com/testcontainers/demo/AlbumControllerTest.java[lines="1..99,117..124"]
 ----
 
 Let us understand what is going on in this test.
