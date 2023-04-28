@@ -1,0 +1,218 @@
+---
+title: "Testing REST API integrations using MockServer"
+date: 2023-04-28T09:39:58+05:30
+draft: false
+description: This guide will explain how to test REST API integrations in a Spring Boot application using Testcontainers Mockserver module.
+repo: https://github.com/testcontainers/tc-guide-testing-rest-api-integrations-using-mockserver
+languages:
+  - Java
+tags:
+  - spring-boot
+  - rest-api
+  - mockserver
+---
+:toc:
+:toclevels: 2
+:codebase: https://raw.githubusercontent.com/testcontainers/tc-guide-testing-rest-api-integrations-using-mockserver/main
+
+In this guide, you will learn how to
+
+* Create a Spring Boot application which talks to external REST APIs
+* Test the external API integration using Testcontainers Mockserver module
+
+== Prerequisites
+* Java 17+
+* Your favorite IDE (Intellij IDEA, Eclipse, NetBeans, VS Code)
+* A Docker environment supported by Testcontainers https://www.testcontainers.org/supported_docker_environment/
+
+== What we are going to achieve in this guide
+We are going to create a Spring Boot project which talks to an external REST API using
+https://docs.spring.io/spring-framework/docs/current/reference/html/integration.html#rest-http-interface[Declarative HTTP Clients Support]
+introduced in Spring Framework 6. Then we will test the external REST API integration using
+the https://www.testcontainers.org/modules/mockserver/[Testcontainers Mockserver module].
+
+== Getting Started
+You can create a new Spring Boot project from https://start.spring.io[Spring Initializr] by selecting the
+*Spring Web*, *Spring Reactive Web*, and *Testcontainers* starters.
+
+Once the application is generated, add the following *RestAssured* and *Mockserver* libraries as test dependencies.
+
+[source,groovy,indent=0]
+----
+include::{codebase}/build.gradle[lines="31..33"]
+----
+
+Assume we are building an application to manage video albums, and we are going to use a 3rd party
+REST API to manage the image and video assets. For this guide, we are going to use a publicly available
+REST API https://jsonplaceholder.typicode.com/ as a 3rd party *photo-service* to store album photos.
+
+We will implement a REST API endpoint to fetch an album for the given albumId. This API internally
+talks to the photo-service to fetch the photos for that album.
+https://www.mock-server.com/[MockServer] is a library that can be used to mock or proxy any http or https based services.
+Testcontainers provides the https://www.testcontainers.org/modules/mockserver/[Mockserver module]
+so that we can run MockServer as a Docker container.
+
+== Create Album and Photo models
+First, let us create *Album* and *Photo* models using Java records.
+
+[source,java]
+----
+include::{codebase}/src/main/java/com/testcontainers/demo/Album.java[]
+----
+
+== Create PhotoServiceClient interface
+Prior to Spring Framework 6, either *RestTemplate* or *WebClient* or *FeignClient* was used to make
+HTTP API calls. Spring 6 introduced native support for creating Declarative HTTP Clients Support.
+
+We will create an interface with a method to fetch photos for a given *albumId* as follows:
+
+[source,java]
+----
+include::{codebase}/src/main/java/com/testcontainers/demo/PhotoServiceClient.java[]
+----
+
+== Register PhotoServiceClient as a Bean
+In order to dynamically generate an implementation of *PhotoServiceClient*, we need to register it
+as a Spring bean using *HttpServiceProxyFactory* which needs an implementation of *HttpClientAdapter*.
+Spring Boot provides *WebClientAdapter*, which is an implementation of *HttpClientAdapter* and is
+part of *spring-webflux* library. As we have already added *spring-boot-starter-webflux* dependency,
+we can register *PhotoServiceClient* bean as follows:
+
+[source,java]
+----
+include::{codebase}/src/main/resources/AppConfig.java[]
+----
+
+We have externalized the photo-service base URL as a configurable property and is used to register
+the *PhotoServiceClient* bean. So, let us add the following property in
+the *src/main/resources/application.properties* file.
+
+[source,properties]
+----
+photos.api.base-url=https://jsonplaceholder.typicode.com
+----
+
+== Implement API endpoint to get album by id
+Let us implement a REST API endpoint to return an Album for the given albumId as follows:
+
+[source,java]
+----
+include::{codebase}/src/main/java/com/testcontainers/demo/AlbumController.java[]
+----
+
+Our application is exposing a REST API endpoint GET `/api/albums/\{albumId}`
+which internally makes an API call to `https://jsonplaceholder.typicode.com/albums/\{albumId}/photos`
+to get photos of that album and returns response similar to the following:
+
+[source,json]
+----
+{
+   "albumId": 1,
+   "photos": [
+       {
+           "id": 51,
+           "title": "non sunt voluptatem placeat consequuntur rem incidunt",
+           "url": "https://via.placeholder.com/600/8e973b",
+           "thumbnailUrl": "https://via.placeholder.com/150/8e973b"
+       },
+       {
+           "id": 52,
+           "title": "eveniet pariatur quia nobis reiciendis laboriosam ea",
+           "url": "https://via.placeholder.com/600/121fa4",
+           "thumbnailUrl": "https://via.placeholder.com/150/121fa4"
+       },
+       ...
+       ...
+   ]
+}
+----
+
+You can run the application and access http://localhost:8080/api/albums/1 to see the JSON response.
+
+Now, let us see how we can test the photo-service API integration using MockServer.
+
+== Write test for photo-service API integration
+It is better to mock the external API interactions at HTTP protocol level instead of mocking
+the *photoServiceClient.getPhotos(albumId)* method because you will be able to verify any
+marshaling/unmarshalling errors, simulate network latency issues, etc.
+
+We can create a MockServer using Testcontainers Mockserver module and create an instance of
+*MockServerClient* as follows:
+
+[source,java]
+----
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Testcontainers
+class AlbumControllerTest {
+   @Container
+   static MockServerContainer mockServerContainer =
+        new MockServerContainer(DockerImageName.parse("mockserver/mockserver:5.15.0"));
+
+   static MockServerClient mockServerClient;
+
+   @DynamicPropertySource
+   static void overrideProperties(DynamicPropertyRegistry registry) {
+       mockServerClient = new MockServerClient(
+           mockServerContainer.getHost(),
+           mockServerContainer.getServerPort()
+       );
+       registry.add("photos.api.base-url", mockServerContainer::getEndpoint);
+   }
+   ...
+   ...
+}
+----
+
+Once we obtain a reference to mockServerClient, we can set the expectations for any API call as follows:
+
+[source,java]
+----
+    mockServerClient
+       .when(request()
+               .withMethod("GET")
+               .withPath("/albums/1/photos"))
+       .respond(response()
+               .withStatusCode(200)
+               .withBody("response content here"));
+----
+
+So, let us write the test for GET /api/albums/\{albumId} endpoint as follows:
+
+[source,java]
+----
+include::{codebase}/src/test/java/com/testcontainers/demo/AlbumControllerTest.java[]
+----
+
+Let us understand what is going on in this test.
+
+* We have annotated the test class with the *@SpringBootTest* annotation to write an integration test which loads the complete Spring application context.
+* We are using the RestAssured library to test our API endpoint, so we captured the random port on which the application started and initialized RestAssured *baseURI*.
+* We have used the Testcontainers JUnit 5 Extension annotations *@Testcontainers* and *@Container* to spin up a *MockServerContainer* and registered the *photos.api.base-url* property pointing to MockServer endpoint URL.
+* In *@BeforeEach* callback method, we are resetting the *mockServerClient* so that one test's expectations won't impact another test.
+* During the *shouldGetAlbumById()* test, we have set the expected mock response for `/albums/\{albumId}/photos` API call and make a request to our application endpoint `/api/albums/\{albumId}` and verified the response.
+* Also, notice that we have verified whether the expected API call is made to MockServer or not using *mockServerClient.verify()*.
+
+== Run tests
+
+[source,shell]
+----
+# If you are using Maven
+./mvnw test
+
+# If you are using Gradle
+./gradlew test
+----
+
+Now, if you run your test, you should see in the console log that MockServer Docker instance is started
+which will act as the photo-service, serving the mock responses as per the configured expectations and the test should pass.
+
+== Summary
+We have learned how to integrate 3rd party HTTP APIs in a Spring Boot application using Declarative HTTP Clients support
+and test it using Testcontainers Mockserver module.
+
+To learn more about Testcontainers visit http://testcontainers.com
+
+== Further Reading
+* https://testcontainers.com/guides/testing-spring-boot-rest-api-using-testcontainers/[Getting started with Testcontainers in a Java Spring Boot Project]
+* https://testcontainers.com/guides/testing-spring-boot-kafka-listener-using-testcontainers/[Testing Spring Boot Kafka Listener using Testcontainers]
+* https://testcontainers.com/guides/replace-h2-with-real-database-for-testing/[The simplest way to replace H2 with a real database for testing]
