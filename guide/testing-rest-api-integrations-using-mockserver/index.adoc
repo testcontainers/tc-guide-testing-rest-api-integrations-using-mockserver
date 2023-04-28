@@ -80,7 +80,7 @@ we can register *PhotoServiceClient* bean as follows:
 
 [source,java]
 ----
-include::{codebase}/src/main/resources/AppConfig.java[]
+include::{codebase}/src/main/java/com/testcontainers/demo/AppConfig.java[]
 ----
 
 We have externalized the photo-service base URL as a configurable property and is used to register
@@ -167,20 +167,20 @@ Once we obtain a reference to mockServerClient, we can set the expectations for 
 
 [source,java]
 ----
-    mockServerClient
-       .when(request()
-               .withMethod("GET")
-               .withPath("/albums/1/photos"))
-       .respond(response()
-               .withStatusCode(200)
-               .withBody("response content here"));
+mockServerClient
+   .when(request()
+       .withMethod("GET")
+       .withPath("/albums/1/photos"))
+   .respond(response()
+       .withStatusCode(200)
+       .withBody("response content here"));
 ----
 
-So, let us write the test for GET /api/albums/\{albumId} endpoint as follows:
+So, let us write the test for GET `/api/albums/\{albumId}` endpoint as follows:
 
 [source,java]
 ----
-include::{codebase}/src/test/java/com/testcontainers/demo/AlbumControllerTest.java[]
+include::{codebase}/src/test/java/com/testcontainers/demo/AlbumControllerTest.java[lines="0..99,117..124"]
 ----
 
 Let us understand what is going on in this test.
