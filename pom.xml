@@ -17,7 +17,7 @@
     <description>Testing REST API integrations using MockServer</description>
     <properties>
         <java.version>17</java.version>
-        <testcontainers.version>1.18.0</testcontainers.version>
+        <testcontainers.version>1.18.1</testcontainers.version>
     </properties>
     <dependencies>
         <dependency>
