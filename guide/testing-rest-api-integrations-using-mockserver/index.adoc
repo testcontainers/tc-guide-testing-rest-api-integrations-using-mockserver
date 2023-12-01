@@ -39,7 +39,7 @@ Once the application is generated, add the following *RestAssured* and *Mockserv
 
 [source,groovy,indent=0]
 ----
-include::{codebase}/build.gradle[lines="31..33"]
+include::{codebase}/build.gradle[lines="32..34"]
 ----
 
 Assume we are building an application to manage video albums, and we are going to use a 3rd party
@@ -180,7 +180,7 @@ So, let us write the test for GET `/api/albums/\{albumId}` endpoint as follows:
 
 [source,java]
 ----
-include::{codebase}/src/test/java/com/testcontainers/demo/AlbumControllerTest.java[lines="1..99,117..124"]
+include::{codebase}/src/test/java/com/testcontainers/demo/AlbumControllerTest.java[lines="1..102,123..130"]
 ----
 
 Let us understand what is going on in this test.

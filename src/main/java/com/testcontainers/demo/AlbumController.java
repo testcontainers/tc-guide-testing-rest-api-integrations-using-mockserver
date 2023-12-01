@@ -14,7 +14,9 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 @RequestMapping("/api")
 class AlbumController {
 
-  private static final Logger logger = LoggerFactory.getLogger(AlbumController.class);
+  private static final Logger logger = LoggerFactory.getLogger(
+    AlbumController.class
+  );
 
   private final PhotoServiceClient photoServiceClient;
 

@@ -40,10 +40,10 @@ class AlbumControllerTest {
   @DynamicPropertySource
   static void overrideProperties(DynamicPropertyRegistry registry) {
     mockServerClient =
-      new MockServerClient(
-        mockServerContainer.getHost(),
-        mockServerContainer.getServerPort()
-      );
+    new MockServerClient(
+      mockServerContainer.getHost(),
+      mockServerContainer.getServerPort()
+    );
     registry.add("photos.api.base-url", mockServerContainer::getEndpoint);
   }
 
@@ -58,11 +58,15 @@ class AlbumControllerTest {
     Long albumId = 1L;
 
     mockServerClient
-      .when(request().withMethod("GET").withPath("/albums/" + albumId + "/photos"))
+      .when(
+        request().withMethod("GET").withPath("/albums/" + albumId + "/photos")
+      )
       .respond(
         response()
           .withStatusCode(200)
-          .withHeaders(new Header("Content-Type", "application/json; charset=utf-8"))
+          .withHeaders(
+            new Header("Content-Type", "application/json; charset=utf-8")
+          )
           .withBody(
             json(
               """
@@ -101,7 +105,9 @@ class AlbumControllerTest {
   void shouldReturn404StatusWhenAlbumNotFound() {
     Long albumId = 1L;
     mockServerClient
-      .when(request().withMethod("GET").withPath("/albums/" + albumId + "/photos"))
+      .when(
+        request().withMethod("GET").withPath("/albums/" + albumId + "/photos")
+      )
       .respond(response().withStatusCode(404));
 
     given()
